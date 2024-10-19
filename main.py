@@ -14,8 +14,7 @@ def init():
     pygame.event.set_grab(True)
 
 def draw_cube():
-    ##Define the vertices. usually a cube contains 8 vertices
-    vertices=( 
+    vertices = (
         (1, -1, -1),
         (1, 1, -1),
         (-1, 1, -1),
@@ -25,7 +24,6 @@ def draw_cube():
         (-1, -1, 1),
         (-1, 1, 1)
     )
-    ##define 12 edges for the body
     edges = (
         (0,1),
         (0,3),
@@ -60,9 +58,9 @@ def main():
     clock = pygame.time.Clock()
     move_speed = 0.1
     mouse_sensitivity = 0.1
-    yaw, pitch = 0, 0
-    camera_pos = [0, 0, -5]
-    camera_front = [0, 0, 1]
+    yaw, pitch = -90.0, 0.0  # Initialize yaw to -90.0 to face the cube initially
+    camera_pos = [0, 0, 0]
+    camera_front = [0, 0, -1]
     camera_up = [0, 1, 0]
 
     while True:
@@ -73,13 +71,19 @@ def main():
 
         keys = pygame.key.get_pressed()
         if keys[pygame.K_w]:
-            camera_pos[2] += move_speed
+            camera_pos[0] += camera_front[0] * move_speed
+            camera_pos[1] += camera_front[1] * move_speed
+            camera_pos[2] += camera_front[2] * move_speed
         if keys[pygame.K_s]:
-            camera_pos[2] -= move_speed
+            camera_pos[0] -= camera_front[0] * move_speed
+            camera_pos[1] -= camera_front[1] * move_speed
+            camera_pos[2] -= camera_front[2] * move_speed
         if keys[pygame.K_a]:
-            camera_pos[0] -= move_speed
+            camera_pos[0] -= math.cos(math.radians(yaw - 90)) * move_speed
+            camera_pos[2] -= math.sin(math.radians(yaw - 90)) * move_speed
         if keys[pygame.K_d]:
-            camera_pos[0] += move_speed
+            camera_pos[0] += math.cos(math.radians(yaw - 90)) * move_speed
+            camera_pos[2] += math.sin(math.radians(yaw - 90)) * move_speed
         if keys[pygame.K_SPACE]:
             camera_pos[1] += move_speed
         if keys[pygame.K_c]:
@@ -88,6 +92,12 @@ def main():
         mouse_movement = pygame.mouse.get_rel()
         yaw += mouse_movement[0] * mouse_sensitivity
         pitch -= mouse_movement[1] * mouse_sensitivity
+
+        # Constrain the pitch
+        if pitch > 89.0:
+            pitch = 89.0
+        if pitch < -89.0:
+            pitch = -89.0
 
         # Calculate the new front vector
         front = [
@@ -103,7 +113,7 @@ def main():
                   camera_up[0], camera_up[1], camera_up[2])
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        draw_plane()
+        # draw_plane()
         draw_cube()
         pygame.display.flip()
         clock.tick(60)
