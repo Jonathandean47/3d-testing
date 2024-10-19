@@ -1,0 +1,128 @@
+import pygame
+from pygame.locals import *
+from OpenGL.GL import *
+from OpenGL.GLU import *
+import math
+
+def init():
+    pygame.init()
+    display = (800, 600)
+    pygame.display.set_mode(display, DOUBLEBUF | OPENGL)
+    gluPerspective(45, (display[0] / display[1]), 0.1, 50.0)
+    glTranslatef(0.0, 0.0, -5)
+    pygame.mouse.set_visible(False)
+    pygame.event.set_grab(True)
+
+def main():
+    init()
+    clock = pygame.time.Clock()
+    x, y = 0, 0
+    move_speed = 0.1
+    mouse_sensitivity = 0.1
+    yaw, pitch = 0, 0
+    camera_pos = [0, 0, -5]
+    camera_front = [0, 0, 1]
+    camera_up = [0, 1, 0]
+    
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+                
+        # movement
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_w]:
+            camera_pos[2] += move_speed
+        if keys[pygame.K_s]:
+            camera_pos[2] -= move_speed
+        if keys[pygame.K_a]:
+            camera_pos[0] -= move_speed
+        if keys[pygame.K_d]:
+            camera_pos[0] += move_speed
+        if keys[pygame.K_SPACE]:
+            camera_pos[1] += move_speed
+        if keys[pygame.K_c]:
+            camera_pos[1] -= move_speed
+            
+        mouse_movement = pygame.mouse.get_rel()
+        yaw += mouse_movement[0] * mouse_sensitivity
+        pitch -= mouse_movement[1] * mouse_sensitivity
+
+        # Calculate the new front vector
+        front = [
+            math.cos(math.radians(yaw)) * math.cos(math.radians(pitch)),
+            math.sin(math.radians(pitch)),
+            math.sin(math.radians(yaw)) * math.cos(math.radians(pitch))
+        ]
+        camera_front = [front[0], front[1], front[2]]
+
+        glLoadIdentity()
+        gluLookAt(camera_pos[0], camera_pos[1], camera_pos[2],
+                  camera_pos[0] + camera_front[0], camera_pos[1] + camera_front[1], camera_pos[2] + camera_front[2],
+                  camera_up[0], camera_up[1], camera_up[2])
+            
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        draw_cube()
+        pygame.display.flip()
+        pygame.time.wait(10)
+
+def draw_cube():
+    # vertices = (
+    #     (1, -1, -1),
+    #     (1, 1, -1),
+    #     (-1, 1, -1),
+    #     (-1, -1, -1),
+    #     (1, -1, 1),
+    #     (1, 1, 1),
+    #     (-1, -1, 1),
+    #     (-1, 1, 1)
+    # )
+    # edges = (
+    #     (0, 1),
+    #     (1, 2),
+    #     (2, 3),
+    #     (3, 0),
+    #     (4, 5),
+    #     (5, 6),
+    #     (6, 7),
+    #     (7, 4),
+    #     (0, 4),
+    #     (1, 5),
+    #     (2, 6),
+    #     (3, 7)
+    # )
+    ##Define the vertices. usually a cube contains 8 vertices
+    vertices=( 
+        (1, -1, -1),
+        (1, 1, -1),
+        (-1, 1, -1),
+        (-1, -1, -1),
+        (1, -1, 1),
+        (1, 1, 1),
+        (-1, -1, 1),
+        (-1, 1, 1)
+    )
+    ##define 12 edges for the body
+    edges = (
+        (0,1),
+        (0,3),
+        (0,4),
+        (2,1),
+        (2,3),
+        (2,7),
+        (6,3),
+        (6,4),
+        (6,7),
+        (5,1),
+        (5,4),
+        (5,7)
+    )
+    glBegin(GL_LINES)
+    for edge in edges:
+        for vertex in edge:
+            glVertex3fv(vertices[vertex])
+    glEnd()
+
+if __name__ == "__main__":
+    main()
