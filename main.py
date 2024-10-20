@@ -7,9 +7,9 @@ import math
 # Initialize Pygame and OpenGL
 def init_pygame_opengl():
     pygame.init()
-    display = (1200, 900)
+    display = (800, 600)
     pygame.display.set_mode(display, DOUBLEBUF | OPENGL)
-    gluPerspective(60, (display[0] / display[1]), 0.1, 1000.0)  # Adjusted FOV angle and aspect ratio
+    gluPerspective(60, (display[0] / display[1]), 0.1, 50.0)  # Adjusted FOV angle and aspect ratio
     pygame.event.set_grab(True)
     pygame.mouse.set_visible(False)
     return display
@@ -124,6 +124,13 @@ class Ground:
             glVertex3f(50, -1, i)
         glEnd()
 
+def draw_text(position, text_string):
+    font = pygame.font.SysFont("Arial", 18)
+    text_surface = font.render(text_string, True, (255, 255, 255, 255), (0, 0, 0, 255))
+    text_data = pygame.image.tostring(text_surface, "RGBA", True)
+    glRasterPos2d(*position)
+    glDrawPixels(text_surface.get_width(), text_surface.get_height(), GL_RGBA, GL_UNSIGNED_BYTE, text_data)
+
 def main():
     display = init_pygame_opengl()
 
@@ -169,6 +176,9 @@ def main():
         yaw += mouse_movement[0] * mouse_sensitivity
         pitch += mouse_movement[1] * mouse_sensitivity  # Inverted pitch correction
 
+        # Clamp pitch to prevent looking beyond straight up and straight down
+        pitch = max(-90, min(90, pitch))
+
         # Clear screen and reset view
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glLoadIdentity()
@@ -183,6 +193,24 @@ def main():
 
         # Draw compass
         Compass.draw(yaw, pitch)
+
+        # Switch to orthographic projection to draw text
+        glMatrixMode(GL_PROJECTION)
+        glPushMatrix()
+        glLoadIdentity()
+        gluOrtho2D(0, display[0], 0, display[1])
+        glMatrixMode(GL_MODELVIEW)
+        glPushMatrix()
+        glLoadIdentity()
+
+        # Draw camera position
+        draw_text((10, 10), f"Position: ({x:.2f}, {y:.2f}, {z:.2f})")
+
+        # Restore perspective projection
+        glMatrixMode(GL_PROJECTION)
+        glPopMatrix()
+        glMatrixMode(GL_MODELVIEW)
+        glPopMatrix()
 
         pygame.display.flip()
         pygame.time.wait(10)
