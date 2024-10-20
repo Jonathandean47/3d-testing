@@ -4,119 +4,183 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 import math
 
-def init():
-    pygame.init()
-    display = (800, 600)
-    pygame.display.set_mode(display, DOUBLEBUF | OPENGL)
-    gluPerspective(45, (display[0] / display[1]), 0.1, 50.0)
-    glTranslatef(0.0, 0.0, -5)
-    pygame.mouse.set_visible(False)
-    pygame.event.set_grab(True)
+# Initialize Pygame and OpenGL
+pygame.init()
+info = pygame.display.Info()
+display = (1200, 900)
+pygame.display.set_mode(display, DOUBLEBUF | OPENGL)
+gluPerspective(60, (display[0] / display[1]), 0.1, 1000.0)  # Adjusted FOV angle and aspect ratio
 
-def draw_cube():
-    vertices = (
-        (1, -1, -1),
-        (1, 1, -1),
-        (-1, 1, -1),
-        (-1, -1, -1),
-        (1, -1, 1),
-        (1, 1, 1),
-        (-1, -1, 1),
-        (-1, 1, 1)
-    )
-    edges = (
-        (0,1),
-        (0,3),
-        (0,4),
-        (2,1),
-        (2,3),
-        (2,7),
-        (6,3),
-        (6,4),
-        (6,7),
-        (5,1),
-        (5,4),
-        (5,7)
-    )
+# Define object classes
+class Cube:
+    def __init__(self, position):
+        self.position = position
+
+    def draw(self):
+        glPushMatrix()
+        glTranslatef(*self.position)
+        glBegin(GL_QUADS)
+        for i, surface in enumerate(surfaces):
+            glColor3fv(colors[i])
+            for vertex in surface:
+                glVertex3fv(vertices[vertex])
+        glEnd()
+        glBegin(GL_LINES)
+        glColor3f(0, 0, 0)  # Black for edges
+        for edge in edges:
+            for vertex in edge:
+                glVertex3fv(vertices[vertex])
+        glEnd()
+        glPopMatrix()
+
+# Define vertices, surfaces, and edges for a cube
+vertices = (
+    (1, -1, -1),
+    (1, 1, -1),
+    (-1, 1, -1),
+    (-1, -1, -1),
+    (1, -1, 1),
+    (1, 1, 1),
+    (-1, -1, 1),
+    (-1, 1, 1)
+)
+
+surfaces = (
+    (0, 1, 2, 3),
+    (3, 2, 7, 6),
+    (6, 7, 5, 4),
+    (4, 5, 1, 0),
+    (1, 5, 7, 2),
+    (4, 0, 3, 6)
+)
+
+edges = (
+    (0, 1),
+    (0, 3),
+    (0, 4),
+    (2, 1),
+    (2, 3),
+    (2, 7),
+    (6, 3),
+    (6, 4),
+    (6, 7),
+    (5, 1),
+    (5, 4),
+    (5, 7)
+)
+
+colors = (
+    (1, 0, 0),  # Red
+    (0, 1, 0),  # Green
+    (0, 0, 1),  # Blue
+    (1, 1, 0),  # Yellow
+    (1, 0, 1),  # Magenta
+    (0, 1, 1)   # Cyan
+)
+
+# Create objects
+objects = [
+    Cube((0, 1, 0)),
+    Cube((2, 0, 0)),
+    Cube((-2, 0, 0))
+]
+
+# Player movement variables
+x, y, z = 0, 0, 0
+yaw, pitch = 0, 0
+speed = 0.1
+mouse_sensitivity = 0.1
+
+# Hide the mouse cursor and center it
+pygame.event.set_grab(True)
+pygame.mouse.set_visible(False)
+
+def draw_compass(yaw, pitch):
+    glPushMatrix()
+    glLoadIdentity()
+    glTranslatef(0.8, -0.8, -1)  # Position the compass in the corner
+    glRotatef(yaw, 0, 1, 0)  # Rotate based on yaw
+    glRotatef(pitch, 1, 0, 0)  # Rotate based on pitch
+
+    # Draw compass
     glBegin(GL_LINES)
-    for edge in edges:
-        for vertex in edge:
-            glVertex3fv(vertices[vertex])
+    glColor3f(1, 0, 0)  # Red for North
+    glVertex3f(0, 0, 0)
+    glVertex3f(0, 0, -0.1)
+    glColor3f(0, 1, 0)  # Green for East
+    glVertex3f(0, 0, 0)
+    glVertex3f(0.1, 0, 0)
+    glColor3f(0, 0, 1)  # Blue for South
+    glVertex3f(0, 0, 0)
+    glVertex3f(0, 0, 0.1)
+    glColor3f(1, 1, 0)  # Yellow for West
+    glVertex3f(0, 0, 0)
+    glVertex3f(-0.1, 0, 0)
+    glColor3f(1, 1, 1)  # White for Up/Down
+    glVertex3f(0, 0, 0)
+    glVertex3f(0, 0.1, 0)
+    glVertex3f(0, 0, 0)
+    glVertex3f(0, -0.1, 0)
     glEnd()
 
-def draw_plane():
-    glColor3f(0.0, 1.0, 0.0)  # Set the color to green
-    glBegin(GL_QUADS)
-    glVertex3f(-10, -1, -10)
-    glVertex3f(10, -1, -10)
-    glVertex3f(10, -1, 10)
-    glVertex3f(-10, -1, 10)
+    glPopMatrix()
+
+def draw_ground():
+    glBegin(GL_LINES)
+    glColor3f(0.5, 0.5, 0.5)
+    for i in range(-50, 51):
+        glVertex3f(i, -1, -50)
+        glVertex3f(i, -1, 50)
+        glVertex3f(-50, -1, i)
+        glVertex3f(50, -1, i)
     glEnd()
 
-def main():
-    init()
-    clock = pygame.time.Clock()
-    move_speed = 0.1
-    mouse_sensitivity = 0.1
-    yaw, pitch = -90.0, 0.0  # Initialize yaw to -90.0 to face the cube initially
-    camera_pos = [0, 0, 0]
-    camera_front = [0, 0, -1]
-    camera_up = [0, 1, 0]
+# Main loop
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE):
+            running = False
 
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
+    keys = pygame.key.get_pressed()
+    if keys[K_w]:
+        x -= math.sin(math.radians(yaw)) * speed
+        z -= math.cos(math.radians(yaw)) * speed
+    if keys[K_s]:
+        x += math.sin(math.radians(yaw)) * speed
+        z += math.cos(math.radians(yaw)) * speed
+    if keys[K_a]:
+        x += math.sin(math.radians(yaw + 90)) * speed
+        z += math.cos(math.radians(yaw + 90)) * speed
+    if keys[K_d]:
+        x += math.sin(math.radians(yaw - 90)) * speed
+        z += math.cos(math.radians(yaw - 90)) * speed
+    if keys[K_SPACE]:
+        y += speed
+    if keys[K_c]:
+        y -= speed
 
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_w]:
-            camera_pos[0] += camera_front[0] * move_speed
-            camera_pos[1] += camera_front[1] * move_speed
-            camera_pos[2] += camera_front[2] * move_speed
-        if keys[pygame.K_s]:
-            camera_pos[0] -= camera_front[0] * move_speed
-            camera_pos[1] -= camera_front[1] * move_speed
-            camera_pos[2] -= camera_front[2] * move_speed
-        if keys[pygame.K_a]:
-            camera_pos[0] -= math.cos(math.radians(yaw - 90)) * move_speed
-            camera_pos[2] -= math.sin(math.radians(yaw - 90)) * move_speed
-        if keys[pygame.K_d]:
-            camera_pos[0] += math.cos(math.radians(yaw - 90)) * move_speed
-            camera_pos[2] += math.sin(math.radians(yaw - 90)) * move_speed
-        if keys[pygame.K_SPACE]:
-            camera_pos[1] += move_speed
-        if keys[pygame.K_c]:
-            camera_pos[1] -= move_speed
+    # Mouse movement
+    mouse_movement = pygame.mouse.get_rel()
+    yaw += mouse_movement[0] * mouse_sensitivity
+    pitch -= mouse_movement[1] * mouse_sensitivity  # Inverted pitch correction
 
-        mouse_movement = pygame.mouse.get_rel()
-        yaw += mouse_movement[0] * mouse_sensitivity
-        pitch -= mouse_movement[1] * mouse_sensitivity
+    # Clear screen and reset view
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    glLoadIdentity()
+    gluLookAt(x, y, z, x + math.sin(math.radians(yaw)), y + math.sin(math.radians(pitch)), z + math.cos(math.radians(yaw)), 0, 1, 0)
 
-        # Constrain the pitch
-        if pitch > 89.0:
-            pitch = 89.0
-        if pitch < -89.0:
-            pitch = -89.0
+    # Draw ground
+    draw_ground()
 
-        # Calculate the new front vector
-        front = [
-            math.cos(math.radians(yaw)) * math.cos(math.radians(pitch)),
-            math.sin(math.radians(pitch)),
-            math.sin(math.radians(yaw)) * math.cos(math.radians(pitch))
-        ]
-        camera_front = [front[0], front[1], front[2]]
+    # Draw objects
+    for obj in objects:
+        obj.draw()
 
-        glLoadIdentity()
-        gluLookAt(camera_pos[0], camera_pos[1], camera_pos[2],
-                  camera_pos[0] + camera_front[0], camera_pos[1] + camera_front[1], camera_pos[2] + camera_front[2],
-                  camera_up[0], camera_up[1], camera_up[2])
+    # Draw compass
+    draw_compass(yaw, pitch)
 
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        # draw_plane()
-        draw_cube()
-        pygame.display.flip()
-        clock.tick(60)
+    pygame.display.flip()
+    pygame.time.wait(10)
 
-if __name__ == "__main__":
-    main()
+pygame.quit()
