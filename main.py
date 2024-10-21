@@ -95,9 +95,10 @@ class Cube:
 class Player:
     def __init__(self, position=(0, 0.25, 5), speed=0.1, gravity=-0.01, jump_velocity=0.2):
         self.position = list(position)
+        self.velocity = [0, 0, 0]  # Horizontal velocity vector
         self.speed = speed
         self.gravity = gravity
-        self.vertical_velocity = 0
+        self.vertical_velocity = 0  # Vertical velocity
         self.jump_velocity = jump_velocity
         self.yaw = 0
         self.pitch = 0
@@ -106,33 +107,39 @@ class Player:
         self.height = 0.5
 
     def move(self, keys):
-        x, y, z = self.position
+        acceleration = self.speed
         if keys[K_w]:
-            x -= math.sin(math.radians(self.yaw)) * self.speed
-            z -= math.cos(math.radians(self.yaw)) * self.speed
+            self.velocity[0] -= math.sin(math.radians(self.yaw)) * acceleration
+            self.velocity[2] -= math.cos(math.radians(self.yaw)) * acceleration
         if keys[K_s]:
-            x += math.sin(math.radians(self.yaw)) * self.speed
-            z += math.cos(math.radians(self.yaw)) * self.speed
+            self.velocity[0] += math.sin(math.radians(self.yaw)) * acceleration
+            self.velocity[2] += math.cos(math.radians(self.yaw)) * acceleration
         if keys[K_a]:
-            x += math.sin(math.radians(self.yaw + 90)) * self.speed
-            z += math.cos(math.radians(self.yaw + 90)) * self.speed
+            self.velocity[0] += math.sin(math.radians(self.yaw + 90)) * acceleration
+            self.velocity[2] += math.cos(math.radians(self.yaw + 90)) * acceleration
         if keys[K_d]:
-            x += math.sin(math.radians(self.yaw - 90)) * self.speed
-            z += math.cos(math.radians(self.yaw - 90)) * self.speed
-        if keys[K_SPACE] and (y == 0 or debug):  # Allow jumping only if on the ground
+            self.velocity[0] += math.sin(math.radians(self.yaw - 90)) * acceleration
+            self.velocity[2] += math.cos(math.radians(self.yaw - 90)) * acceleration
+
+        # Apply friction
+        self.velocity[0] *= 0.9
+        self.velocity[2] *= 0.9
+
+        # Update position based on velocity
+        self.position[0] += self.velocity[0]
+        self.position[2] += self.velocity[2]
+
+        # Handle jumping
+        if keys[K_SPACE] and (self.position[1] == 0.0 or debug):  # Allow jumping only if on the ground
             self.vertical_velocity = self.jump_velocity
-        # if keys[K_c]:
-        #     y -= self.speed
-        
-        self.position = [x, y, z]
 
     def apply_gravity(self):
         self.vertical_velocity += self.gravity
         self.position[1] += self.vertical_velocity
 
         # Check for collision with the ground
-        if self.position[1] < 0:  # Assuming the ground is at y = -1
-            self.position[1] = 0
+        if self.position[1] < 0.25:  # Assuming the ground is at y = -1
+            self.position[1] = 0.25
             self.vertical_velocity = 0  # Reset velocity when hitting the ground
 
     def update_view(self):
@@ -149,7 +156,7 @@ class Player:
     def get_view_matrix(self):
         x, y, z = self.position
         return (x, y, z, x + math.sin(math.radians(self.yaw)), y + math.sin(math.radians(self.pitch)), z + math.cos(math.radians(self.yaw)), 0, 1, 0)
-    
+
     def get_bounding_box(self):
         min_x = self.position[0] - self.radius
         max_x = self.position[0] + self.radius
@@ -158,10 +165,15 @@ class Player:
         min_z = self.position[2] - self.radius
         max_z = self.position[2] + self.radius
         return (min_x, max_x, min_y, max_y, min_z, max_z)
+    
+    def get_total_velocity(self):
+        horizontal_velocity = math.sqrt(self.velocity[0]**2 + self.velocity[2]**2)
+        total_velocity = math.sqrt(horizontal_velocity**2 + self.vertical_velocity**2)
+        return total_velocity
 
     def draw(self):
         glPushMatrix()
-        glTranslatef(self.position[0], self.position[1], self.position[2])
+        glTranslatef(self.position[0], self.position[1] - self.height / 2, self.position[2])
         glRotatef(-90, 1, 0, 0)  # Rotate cylinder to be vertical
         quadric = gluNewQuadric()
         glColor3f(1, 0, 0)  # Red color for the player
@@ -267,14 +279,14 @@ def main():
 
     # Create player
     player = Player()
-    
+
     # Create objects
     objects = [
-        Cube((0, 1, 0), size = 1),
-        Cube((3, 0, 0), size = 2),
-        Cube((-2, 0, 0), size = 0.5)
+        Cube((0, 1, 0), size=1),
+        Cube((3, 2, 0), size=2),
+        Cube((-2, 0.5, 0), size=0.5)
     ]
-    
+
     running = True
     while running:
         for event in pygame.event.get():
@@ -285,8 +297,8 @@ def main():
         player.move(keys)
         player.apply_gravity()
         player.update_view()
-        
-        # Check for collisions and adjust camera position
+
+        # Check for collisions and adjust player position
         player_bounding_box = player.get_bounding_box()
         for obj in objects:
             obj_bounding_box = obj.get_bounding_box()
@@ -298,7 +310,7 @@ def main():
                         break
 
                 # Calculate the reflection vector
-                movement_vector = numpy.array([math.sin(math.radians(player.yaw)) * player.speed, 0, math.cos(math.radians(player.yaw)) * player.speed])
+                movement_vector = numpy.array([player.velocity[0], 0, player.velocity[2]])
                 reflection_vector = reflect_vector(movement_vector, normal)
 
                 # Adjust the player's position
@@ -307,11 +319,14 @@ def main():
 
                 # Adjust the player's vertical position if necessary
                 if player.position[1] < obj_bounding_box[3] + player.height / 2 and \
-                    player.position[0] > obj_bounding_box[0] and player.position[0] < obj_bounding_box[1] and \
-                    player.position[2] > obj_bounding_box[4] and player.position[2] < obj_bounding_box[5]:
+                   player.position[0] > obj_bounding_box[0] and player.position[0] < obj_bounding_box[1] and \
+                   player.position[2] > obj_bounding_box[4] and player.position[2] < obj_bounding_box[5]:
                     player.position[1] = obj_bounding_box[3] + player.height / 2
                     player.vertical_velocity = 0  # Reset velocity when landing on top
 
+        # Apply friction to reduce speed
+        player.velocity[0] *= 0.9
+        player.velocity[2] *= 0.9
 
         # Clear screen and reset view
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -320,18 +335,17 @@ def main():
 
         # Draw ground
         Ground.draw()
-        
+
         # Draw objects
         for obj in objects:
             obj.draw()
 
         # Draw player
         player.draw()
-        
+
         if debug:
             # Draw compass
             Compass.draw(player.yaw, player.pitch)
-
             # Switch to orthographic projection to draw text
             glMatrixMode(GL_PROJECTION)
             glPushMatrix()
@@ -340,11 +354,12 @@ def main():
             glMatrixMode(GL_MODELVIEW)
             glPushMatrix()
             glLoadIdentity()
-
             # Draw camera position
             draw_text((10, 10), f"({player.position[0]:.2f}, {player.position[1]:.2f}, {player.position[2]:.2f})")
-            draw_text((display[0]-180, 10), f"({player.yaw:.2f}°, {-player.pitch:.2f}°)")
-
+            draw_text((display[0] - 180, 10), f"({player.yaw:.2f}°, {-player.pitch:.2f}°)")
+            # Draw total velocity
+            total_velocity = player.get_total_velocity()
+            draw_text((10, 30), f"Velocity: {total_velocity:.2f}")
             # Restore perspective projection
             glMatrixMode(GL_PROJECTION)
             glPopMatrix()
