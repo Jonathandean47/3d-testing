@@ -1,0 +1,7 @@
+{
+    "debug": {
+        "fly": false,
+        "extended_info": true,
+        "show_compass":true
+    }
+}

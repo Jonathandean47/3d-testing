@@ -3,7 +3,8 @@ from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
 import math
-import config
+import util
+
 
 class Player:
     def __init__(self, position=(0, 0.5, 5), speed=0.1, gravity=-0.01, jump_velocity=0.2):
@@ -18,6 +19,7 @@ class Player:
         self.mouse_sensitivity = 0.1
         self.radius = 0.1
         self.height = 0.5
+        self.config = util.load_config()
 
     def move(self, keys):
         acceleration = self.speed
@@ -43,7 +45,7 @@ class Player:
         self.position[2] += self.velocity[2]
 
         # Handle jumping
-        if keys[K_SPACE] and (self.position[1] == 0.0 or config.debug):  # Allow jumping only if on the ground
+        if keys[K_SPACE] and (self.position[1] == 0.25 or self.config["debug"]["fly"]):  # Allow jumping only if on the ground
             self.vertical_velocity = self.jump_velocity
 
     def apply_gravity(self):
@@ -89,7 +91,7 @@ class Player:
         glTranslatef(self.position[0], self.position[1] - self.height / 2, self.position[2])
         glRotatef(-90, 1, 0, 0)  # Rotate cylinder to be vertical
         quadric = gluNewQuadric()
-        glColor3f(1, 0, 0)  # Red color for the player
+        glColor3f(0.9, 0, 0.1)
 
         # Draw cylinder body
         gluCylinder(quadric, self.radius, self.radius, self.height, 32, 32)
@@ -97,13 +99,13 @@ class Player:
         # Draw top cap
         glPushMatrix()
         glTranslatef(0, 0, self.height)
-        glColor3f(0, 0, 1)
+        glColor3f(0.75, 0, 0.75)
         gluDisk(quadric, 0, self.radius, 32, 1)
         glPopMatrix()
 
         # Draw bottom cap
         glPushMatrix()
-        glColor3f(0, 1, 1)
+        glColor3f(0, 0.75, .75)
         gluDisk(quadric, 0, self.radius, 32, 1)
         glPopMatrix()
 

@@ -8,7 +8,6 @@ from Player import *
 from Compass import *
 from Ground import *
 from util import *
-import config
 import sys
 
 def main():
@@ -16,9 +15,12 @@ def main():
     frame_rate = 60
     clock = pygame.time.Clock()
     display = init_pygame_opengl(render_distance)
+    config = load_config()
+    
+    check_opengl_errors()
 
     # Create player
-    player = Player(position=(0, 0.5, 5), speed=0.1, gravity=-0.01, jump_velocity=0.2)
+    player = Player(position=(0, 0.5, 5), speed=0.02, gravity=-0.01, jump_velocity=0.1)
 
     # Create objects
     objects = [
@@ -42,27 +44,34 @@ def main():
         player_bounding_box = player.get_bounding_box()
         for obj in objects:
             obj_bounding_box = obj.get_bounding_box()
-            if check_collision(player_bounding_box, obj_bounding_box):
-                # Calculate the normal vector of the collision surface
-                for i, surface in enumerate(obj.surfaces):
-                    if check_collision(player_bounding_box, obj.get_bounding_box()):
-                        normal = obj.get_surface_normal(i)
-                        break
+            if check_object_collision(player_bounding_box, obj_bounding_box):
+                collision_point = calculate_collision_point(player.position, player.velocity, obj_bounding_box)
+                if collision_point:
+                    # Calculate the surface normal at the collision point
+                    normal = calculate_surface_normal_at_point(collision_point, obj)
+                    if normal is not None:
+                        # Calculate the angle between the surface normal and the vertical axis
+                        angle = calculate_angle(normal)
 
-                # Calculate the reflection vector
-                movement_vector = numpy.array([player.velocity[0], 0, player.velocity[2]])
-                reflection_vector = reflect_vector(movement_vector, normal)
+                        # Reduce the player's velocity based on the angle
+                        reduction_factor = max(0, 1 - (angle / 90))  # Scale from 1 (0 degrees) to 0 (90 degrees)
+                        player.velocity[0] *= reduction_factor
+                        player.velocity[2] *= reduction_factor
 
-                # Adjust the player's position
-                player.position[0] += reflection_vector[0]
-                player.position[2] += reflection_vector[2]
+                        # Calculate the reflection vector
+                        movement_vector = numpy.array([player.velocity[0], 0, player.velocity[2]])
+                        reflection_vector = reflect_vector(movement_vector, normal)
 
-                # Adjust the player's vertical position if necessary
-                if player.position[1] < obj_bounding_box[3] + player.height / 2 and \
-                   player.position[0] > obj_bounding_box[0] and player.position[0] < obj_bounding_box[1] and \
-                   player.position[2] > obj_bounding_box[4] and player.position[2] < obj_bounding_box[5]:
-                    player.position[1] = obj_bounding_box[3] + player.height / 2
-                    player.vertical_velocity = 0  # Reset velocity when landing on top
+                        # Adjust the player's position
+                        player.position[0] += reflection_vector[0]
+                        player.position[2] += reflection_vector[2]
+
+                        # Adjust the player's vertical position if necessary
+                        if player.position[1] < obj_bounding_box[3] + player.height / 2 and \
+                        player.position[0] > obj_bounding_box[0] and player.position[0] < obj_bounding_box[1] and \
+                        player.position[2] > obj_bounding_box[4] and player.position[2] < obj_bounding_box[5]:
+                            player.position[1] = obj_bounding_box[3] + player.height / 2
+                            player.vertical_velocity = 0  # Reset velocity when landing on top
 
         # Apply friction to reduce speed
         player.velocity[0] *= 0.9
@@ -83,10 +92,11 @@ def main():
         # Draw player
         player.draw()
 
-        if config.debug:
+        if config["debug"]["show_compass"]:
             # Draw compass
             Compass.draw(player.yaw, player.pitch)
             # Switch to orthographic projection to draw text
+        if config["debug"]["extended_info"]:
             glMatrixMode(GL_PROJECTION)
             glPushMatrix()
             glLoadIdentity()
